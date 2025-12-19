@@ -1,0 +1,30 @@
+{
+  "name": "siyuan-notes-skill",
+  "version": "1.0.0",
+  "description": "思源笔记查询工具，支持SQL查询、文档搜索、笔记本管理等功能",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node index.js check"
+  },
+  "keywords": [
+    "siyuan",
+    "notes",
+    "query",
+    "sql",
+    "search"
+  ],
+  "author": "Claude",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anthropics/claude-skills"
+  }
+}
