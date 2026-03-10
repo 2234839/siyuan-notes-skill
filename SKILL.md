@@ -225,12 +225,13 @@ SELECT id, markdown FROM blocks WHERE id IN (SELECT block_id FROM refs WHERE def
 
 ```bash
 # 排除的笔记路径（多个用逗号分隔，包含子笔记）
-SIYUAN_EXCLUDE_PATHS=/姑射山人,/私密日记
+# 示例：排除敏感笔记及其所有子笔记
+SIYUAN_EXCLUDE_PATHS=/私密笔记,/个人日记
 ```
 
 **特点：**
-- ✅ 路径更直观（`/姑射山人` 比 ID 更易读）
-- ✅ 自动排除所有子笔记（`/姑射山人/博文`、`/姑射山人/问答` 等）
+- ✅ 路径更直观（`/私密笔记` 比 ID 更易读）
+- ✅ 自动排除所有子笔记（`/私密笔记/子笔记1`、`/私密笔记/子笔记2` 等）
 - ✅ 路径更稳定（笔记本 ID 可能变化）
 
 **如何查找路径：**
@@ -243,7 +244,8 @@ node -e "const s = require('./index.js'); (async () => { console.log(await s.sea
 
 ```bash
 # 排除的笔记本ID（多个用逗号分隔）
-SIYUAN_EXCLUDE_BOXES=20210816161940-3mfvumm
+# 示例：排除敏感笔记本
+SIYUAN_EXCLUDE_BOXES=20210816161940-xxxxxxx
 ```
 
 **如何获取笔记本 ID：**
@@ -265,18 +267,17 @@ node -e "const s = require('./index.js'); (async () => {
 SELECT * FROM blocks WHERE content LIKE '%关键词%'
 
 -- 自动修改为（排除笔记本）
-SELECT * FROM blocks WHERE box NOT IN ('20210816161940-3mfvumm') AND content LIKE '%关键词%'
+SELECT * FROM blocks WHERE box NOT IN ('笔记本ID') AND content LIKE '%关键词%'
 
 -- 自动修改为（排除路径）
-SELECT * FROM blocks WHERE hpath NOT LIKE '/姑射山人%' AND content LIKE '%关键词%'
+SELECT * FROM blocks WHERE hpath NOT LIKE '/排除路径%' AND content LIKE '%关键词%'
 ```
 
 **全文搜索：**
 - 在获取结果后过滤掉排除的内容
 - 确保敏感内容不会出现在搜索结果中
 
-**当前配置（本地）：**
-```bash
-# 推荐使用路径排除
-SIYUAN_EXCLUDE_PATHS=/姑射山人
-```
+**使用场景：**
+- 排除包含敏感信息的笔记
+- 排除私密日记、个人笔记等
+- 排除特定主题的笔记（如工作笔记、财务记录等）
