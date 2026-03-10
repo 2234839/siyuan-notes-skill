@@ -1,111 +1,198 @@
-# 思源笔记查询技能
+# SiYuan Notes Skill
 
-让你的思源笔记与Claude完美融合，实现强大的笔记智能查询和管理。
+思源笔记查询工具，为 AI Agent 提供思源笔记的搜索和查询能力。
 
-**GitHub仓库**: https://github.com/2234839/siyuan-notes-skill
+## 功能特性
 
-## ✨ 为什么选择这个技能？
+- ✅ 全文搜索（支持中文分词）
+- ✅ SQL 查询（灵活的高级查询）
+- ✅ 获取块内容（kramdown 源码）
+- ✅ 获取资源文件路径（图片、附件等）
+- ✅ **排除特定笔记本**（API 层面过滤）
+- ✅ **排除特定笔记路径**（包含子笔记）
 
-- 🔍 **全量内容搜索** - 不再局限于思源内置搜索，可以查询笔记中的任何内容
-- 🔗 **智能关联发现** - 自动发现笔记间的引用关系，找到你可能遗忘的关联
-- 📋 **任务管理集成** - 直接查询和管理笔记中的待办事项
-- 🏷️ **标签属性查询** - 支持基于标签和自定义属性的精准筛选
-- 📊 **时间维度分析** - 按时间范围查询日记、任务、近期文档等
-- 🎯 **零学习成本** - 自然语言即可完成复杂查询，无需学习SQL
+## 安装
 
-## 🚀 快速开始
-
-### 1. 安装技能
+1. 克隆仓库
 ```bash
-# 克隆到Claude技能目录
-cd ~/.claude/skills
-git clone https://github.com/2234839/siyuan-notes-skill.git siyuan-notes
+git clone https://github.com/2234839/siyuan-notes-skill.git
+cd siyuan-notes-skill
+```
 
-# 安装依赖
-cd siyuan-notes
+2. 安装依赖
+```bash
 npm install
 ```
 
-### 2. 配置连接
-1. 打开思源笔记 → **设置** → **关于**
-2. 复制 **API Token**
-3. 创建配置文件：
+3. 配置环境变量
 ```bash
 cp .env.example .env
-```
-4. 编辑 `.env`，填入你的API Token：
-```env
-SIYUAN_HOST=localhost
-SIYUAN_PORT=6806
-SIYUAN_API_TOKEN=你的API_TOKEN
+# 编辑 .env 文件，填入你的思源笔记配置
 ```
 
-### 3. 开始使用
-安装完成后，你就可以用自然语言向Claude询问关于笔记的各种问题！
+## 配置说明
 
-## 💡 使用示例
+### 基础配置
 
-### 日常查询
-> "帮我搜索所有包含'人工智能'的笔记"
-> "最近一周我写了哪些待办事项？"
-> "找出所有标记为'重要'的笔记"
-> "显示我的所有日记文档"
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `SIYUAN_HOST` | 思源笔记服务器地址 | `localhost` |
+| `SIYUAN_PORT` | 端口号 | `6806` |
+| `SIYUAN_USE_HTTPS` | 是否使用 HTTPS | `false` |
+| `SIYUAN_API_TOKEN` | API Token | - |
+| `SIYUAN_BASIC_AUTH_USER` | Basic Auth 用户名 | - |
+| `SIYUAN_BASIC_AUTH_PASS` | Basic Auth 密码 | - |
 
-### 深度分析
-> "哪些笔记引用了这篇文章？"
-> "列出项目中未完成的任务"
-> "找出这个笔记本里没有被引用的文档"
-> "随机推荐一个笔记标题让我看看"
+### 排除配置（API 层面过滤）
 
-### 文档管理
-> "显示所有文档的结构"
-> "查找特定时间段创建的笔记"
-> "按优先级排序显示我的任务"
+#### 排除笔记本
 
-## ⚡ 核心优势
+排除指定的笔记本（通过笔记本 ID）：
 
-### 🎯 精准定位
-相比思源内置搜索，这个技能可以：
-- 基于时间、属性、引用关系等多维度筛选
-- 支持复杂的组合查询条件
-- 快速定位特定类型的笔记内容
+```bash
+# 排除单个笔记本
+SIYUAN_EXCLUDE_BOXES=20210816161940-xxxxxxx
 
-### 🔄 持续同步
-- 实时连接你的思源笔记数据库
-- 自动获取最新的笔记内容和结构
-- 支持远程思源实例
+# 排除多个笔记本（逗号分隔）
+SIYUAN_EXCLUDE_BOXES=20210816161940-xxxxxxx,20210816161941-yyyyyyy
+```
 
-### 🛡️ 安全可靠
-- 本地运行，数据不离开你的设备
-- 支持思源笔记的安全认证机制
-- 不会修改或删除你的笔记内容
+**获取笔记本 ID：**
+```sql
+SELECT DISTINCT box, hpath FROM blocks WHERE type = 'd' LIMIT 10
+```
 
-## 🔧 支持的查询类型
+#### 排除笔记路径
 
-- **内容搜索** - 全文检索笔记内容
-- **文档导航** - 按文档结构浏览
-- **引用关系** - 发现笔记间的链接
-- **任务管理** - 待办事项状态跟踪
-- **时间查询** - 按创建/修改时间筛选
-- **标签系统** - 基于标签的分类查询
-- **属性过滤** - 自定义属性精确筛选
+排除指定的笔记路径（包含所有子笔记）：
 
-## 📝 常见问题
+```bash
+# 排除单个路径
+SIYUAN_EXCLUDE_PATHS=/私密笔记
 
-**Q: 需要学习SQL吗？**
-A: 不需要！用自然语言描述你的需求即可，Claude会自动转换为相应的查询。
+# 排除多个路径（逗号分隔）
+SIYUAN_EXCLUDE_PATHS=/私密笔记,/个人日记
+```
 
-**Q: 会修改我的笔记吗？**
-A: 完全不会，这个技能只读取内容，不会对笔记做任何修改。
+**注意：**
+- 路径以 `/` 开头
+- 会排除该笔记及其所有子笔记
+- 例如：排除 `/私密笔记` 会同时排除 `/私密笔记/子笔记1`、`/私密笔记/子笔记2` 等
 
-**Q: 支持哪些思源版本？**
-A: 支持所有提供API接口的思源笔记版本。
+## 使用示例
 
-**Q: 可以在移动设备上使用吗？**
-A: 只要能访问到你的思源笔记API接口就可以使用。
+### 全文搜索
 
----
+```javascript
+const siyuan = require('./index.js');
 
-**开始你的智能笔记管理之旅！** 🎉
+// 搜索关键词
+const results = await siyuan.searchNotes('关键词', 20);
 
-安装完成后，直接对Claude说："帮我查看笔记"就可以开始了。
+// 按类型搜索（只搜索标题）
+const headings = await siyuan.searchNotes('关键词', 10, 'h');
+
+// 翻页
+const page2 = await siyuan.searchNotes('关键词', 20, null, 2);
+```
+
+### SQL 查询
+
+```javascript
+// 查询 markdown 字段（推荐）
+const results = await siyuan.executeSiyuanQuery(
+  "SELECT id, markdown, updated FROM blocks WHERE markdown LIKE '%[x]%' LIMIT 20"
+);
+
+// 查询已完成的任务
+const completed = await siyuan.executeSiyuanQuery(
+  "SELECT id, markdown, updated FROM blocks WHERE markdown LIKE '%[x]%' ORDER BY updated DESC LIMIT 20"
+);
+
+// 查询未完成的任务
+const pending = await siyuan.executeSiyuanQuery(
+  "SELECT id, markdown, updated FROM blocks WHERE markdown LIKE '%[ ]%' ORDER BY updated DESC LIMIT 20"
+);
+```
+
+### 获取块内容
+
+```javascript
+const content = await siyuan.getBlockByID('块ID');
+console.log(content);
+```
+
+### 获取资源文件路径
+
+```javascript
+const imagePath = await siyuan.getLocalAssetPath('块ID', 'assets/image-xxx.webp');
+console.log(imagePath); // /home/user/.claude/skills/siyuan-notes-skill/.tmp/assets/image-xxx.webp
+```
+
+## 块类型参数
+
+搜索时可以指定块类型：
+
+| 参数 | 类型 |
+|------|------|
+| `h` | 标题 |
+| `p` | 段落 |
+| `d` | 文档 |
+| `l` | 列表 |
+| `c` | 代码 |
+| `t` | 表格 |
+| `b` | 引用 |
+
+## API 层面过滤
+
+本工具在 API 层面实现了内容过滤，确保敏感内容不会被查询到：
+
+### 工作原理
+
+1. **SQL 查询**：自动在 WHERE 子句中添加排除条件
+2. **全文搜索**：在获取结果后过滤排除的内容
+
+### 排除笔记本
+
+```sql
+-- 原始查询
+SELECT * FROM blocks WHERE content LIKE '%关键词%'
+
+-- 自动修改为
+SELECT * FROM blocks WHERE box NOT IN ('20210816161940-3mfvumm') AND content LIKE '%关键词%'
+```
+
+### 排除笔记路径
+
+```sql
+-- 原始查询
+SELECT * FROM blocks WHERE content LIKE '%关键词%'
+
+-- 自动修改为
+SELECT * FROM blocks WHERE hpath NOT LIKE '/姑射山人%' AND content LIKE '%关键词%'
+```
+
+## 许可证
+
+MIT
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+## 更新日志
+
+### v1.1.0 (2026-03-10)
+
+- ✨ 新增：排除特定笔记本功能（`SIYUAN_EXCLUDE_BOXES`）
+- ✨ 新增：排除特定笔记路径功能（`SIYUAN_EXCLUDE_PATHS`）
+- 🔧 优化：优先使用 `markdown` 字段（保留格式标记）
+- 📝 文档：更新配置说明和使用示例
+
+### v1.0.0
+
+- 初始版本
+- 全文搜索
+- SQL 查询
+- 获取块内容
+- 获取资源文件路径
