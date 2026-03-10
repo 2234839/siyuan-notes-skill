@@ -45,6 +45,18 @@ const SIYUAN_USE_HTTPS = process.env.SIYUAN_USE_HTTPS === 'true';
 const SIYUAN_BASIC_AUTH_USER = process.env.SIYUAN_BASIC_AUTH_USER || '';
 const SIYUAN_BASIC_AUTH_PASS = process.env.SIYUAN_BASIC_AUTH_PASS || '';
 
+/** 排除的笔记本ID列表（API层面过滤） */
+const SIYUAN_EXCLUDE_BOXES = (process.env.SIYUAN_EXCLUDE_BOXES || '')
+    .split(',')
+    .map(id => id.trim())
+    .filter(id => id.length > 0);
+
+/** 排除的笔记路径列表（API层面过滤，包含子笔记） */
+const SIYUAN_EXCLUDE_PATHS = (process.env.SIYUAN_EXCLUDE_PATHS || '')
+    .split(',')
+    .map(p => p.trim())
+    .filter(p => p.length > 0);
+
 /** API端点配置 */
 const API_BASE_URL = `${SIYUAN_USE_HTTPS ? 'https' : 'http'}://${SIYUAN_HOST}${SIYUAN_PORT ? ':' + SIYUAN_PORT : ''}`;
 const SQL_QUERY_ENDPOINT = `${API_BASE_URL}/api/query/sql`;
@@ -262,7 +274,38 @@ async function searchNotes(keyword, limit = 20, blockType = null, page = 1) {
             console.log(`🎯 搜索完成: 找到 ${results.matchedBlockCount} 个匹配块，${results.matchedRootCount} 个文档`);
         }
 
-        const blocks = results.blocks.slice(0, limit);
+        // 🔴 排除指定的笔记本（API层面过滤）
+        let blocks = results.blocks;
+        if (SIYUAN_EXCLUDE_BOXES.length > 0) {
+            const beforeCount = blocks.length;
+            blocks = blocks.filter(block => {
+                const boxId = block.box || '';
+                return !SIYUAN_EXCLUDE_BOXES.includes(boxId);
+            });
+            const afterCount = blocks.length;
+            if (DEBUG_MODE && beforeCount !== afterCount) {
+                console.log(`🚫 排除笔记本: 过滤掉 ${beforeCount - afterCount} 条结果（笔记本ID: ${SIYUAN_EXCLUDE_BOXES.join(', ')}）`);
+            }
+        }
+        
+        // 🔴 排除指定的笔记路径（API层面过滤，包含子笔记）
+        if (SIYUAN_EXCLUDE_PATHS.length > 0) {
+            const beforeCount = blocks.length;
+            blocks = blocks.filter(block => {
+                const hpath = block.hPath || '';
+                // 检查是否匹配任何一个排除路径（包含子笔记）
+                return !SIYUAN_EXCLUDE_PATHS.some(excludePath => {
+                    const normalizedPath = excludePath.startsWith('/') ? excludePath : '/' + excludePath;
+                    return hpath.startsWith(normalizedPath);
+                });
+            });
+            const afterCount = blocks.length;
+            if (DEBUG_MODE && beforeCount !== afterCount) {
+                console.log(`🚫 排除路径: 过滤掉 ${beforeCount - afterCount} 条结果（路径: ${SIYUAN_EXCLUDE_PATHS.join(', ')}）`);
+            }
+        }
+
+        blocks = blocks.slice(0, limit);
 
         /** 按文档分组，减少重复路径显示 */
         const groupedByDoc = {};
@@ -285,7 +328,8 @@ async function searchNotes(keyword, limit = 20, blockType = null, page = 1) {
                 groupedByDoc[docKey] = { path, rootID, items: [] };
             }
             const type = typeMap[item.type] || '块';
-            const content = (item.content || '').replace(/<[^>]+>/g, '');
+            // 优先使用 markdown（包含 [x]/[ ] 等格式标记），回退到 content
+            const content = (item.markdown || item.content || '').replace(/<[^>]+>/g, '');
             groupedByDoc[docKey].items.push({ type, content, id: item.id });
         });
 
@@ -337,8 +381,48 @@ async function executeSiyuanQuery(sqlQuery) {
             'Content-Type': 'application/json'
         };
 
+        // 添加排除笔记本的条件（API层面过滤）
+        let finalQuery = sqlQuery;
+        
+        // 1. 排除笔记本
+        if (SIYUAN_EXCLUDE_BOXES.length > 0) {
+            const excludeCondition = SIYUAN_EXCLUDE_BOXES.map(id => `'${id}'`).join(', ');
+            
+            // 如果查询中已经有 WHERE，添加 AND box NOT IN
+            if (sqlQuery.toUpperCase().includes(' WHERE ')) {
+                finalQuery = finalQuery.replace(/ WHERE /i, ` WHERE box NOT IN (${excludeCondition}) AND `);
+            } 
+            // 如果没有 WHERE 但有 FROM blocks，添加 WHERE box NOT IN
+            else if (sqlQuery.toUpperCase().includes(' FROM blocks')) {
+                finalQuery = finalQuery.replace(/ FROM blocks/i, ` FROM blocks WHERE box NOT IN (${excludeCondition})`);
+            }
+        }
+        
+        // 2. 排除笔记路径（包含子笔记）
+        if (SIYUAN_EXCLUDE_PATHS.length > 0) {
+            SIYUAN_EXCLUDE_PATHS.forEach(excludePath => {
+                const normalizedPath = excludePath.startsWith('/') ? excludePath : '/' + excludePath;
+                const pathCondition = `hpath NOT LIKE '${normalizedPath}%'`;
+                
+                // 如果已经有 WHERE，添加 AND hpath NOT LIKE
+                if (finalQuery.toUpperCase().includes(' WHERE ')) {
+                    finalQuery = finalQuery.replace(/ WHERE /i, ` WHERE ${pathCondition} AND `);
+                } 
+                // 如果没有 WHERE 但有 FROM blocks，添加 WHERE hpath NOT LIKE
+                else if (finalQuery.toUpperCase().includes(' FROM blocks')) {
+                    finalQuery = finalQuery.replace(/ FROM blocks/i, ` FROM blocks WHERE ${pathCondition}`);
+                }
+            });
+        }
+        
+        if (DEBUG_MODE && (SIYUAN_EXCLUDE_BOXES.length > 0 || SIYUAN_EXCLUDE_PATHS.length > 0)) {
+            console.log('🚫 排除笔记本:', SIYUAN_EXCLUDE_BOXES);
+            console.log('🚫 排除路径:', SIYUAN_EXCLUDE_PATHS);
+            console.log('📝 修改后的查询:', finalQuery);
+        }
+
         let requestBody = {
-            stmt: sqlQuery
+            stmt: finalQuery
         };
 
         let response;
@@ -414,7 +498,7 @@ async function executeSiyuanQuery(sqlQuery) {
                 type: item.type,
                 subtype: item.subtype,
                 content: item.content,
-                markdown: item.markdown,
+                markdown: item.markdown || item.content, // 优先使用 markdown，回退到 content
                 hpath: item.hPath,
                 created: item.created,
                 updated: item.updated,
